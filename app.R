@@ -139,13 +139,10 @@ server <- function(input, output, session) {
     
     ranks <- c()
     for (metric in metrics) {
-      # Convert the metric column to numeric
       metric_values <- as.numeric(df_unique[[metric]])
       
-      # Rank the values in descending order
       metric_ranks <- rank(-metric_values, ties.method = "min")
       
-      # Find the rank of the current player
       player_index <- which(df_unique$Player == player_data$Player)
       if (length(player_index) > 0) {
         player_rank <- metric_ranks[player_index[1]]
@@ -155,15 +152,13 @@ server <- function(input, output, session) {
       
       ranks <- c(ranks, player_rank)
     }
-    
-    # Create rankings data frame
+
     rankings <- data.frame(
       Metric = metrics,
       Rank = ranks,
       TotalPlayers = total_players
     )
     
-    # Generate rankings text
     rankings_text <- paste(
       paste0(
         rankings$Metric, ": Rank ", rankings$Rank, "/", rankings$TotalPlayers
