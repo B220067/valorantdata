@@ -42,45 +42,65 @@ df[percentage_columns] <- lapply(df[percentage_columns], function(x) {
 
 # Check data structure
 str(df)
-# write.csv(df, "C:/Users/Chloe Lim/Downloads/filename.csv", row.names = FALSE)
 
 
 # R Shiny
 ui <- fluidPage(
   theme = shinytheme("cerulean"),
+  tags$head(
+    tags$style(HTML("
+      .agent-image {
+        height: 20px;
+        width: 20px;
+      }
+    "))
+  ),
   titlePanel("Player Data Viewer"),
   sidebarLayout(
     sidebarPanel(
       selectInput("region", label = "Select Region", choices = unique(df$Region)),
       selectInput("team", label = "Select Team", choices = NULL),
-      selectInput("player", label = "Select Player", choices = NULL)
+      selectInput("player", label = "Select Player", choices = NULL),
+      style = "width: 200px;"
     ),
     mainPanel(
-      # Section titles and outputs
-      tags$div(
-        tags$h4("Player Performance Data"),
-        tableOutput("oneStatRow")
-      ),
-      tags$br(),
-      tags$div(
-        tags$h4("Agents Played"),
-        uiOutput("agents")
-      ),
-      tags$br(),
-      tags$div(
-        tags$h4("Rankings for All Metrics"),
-        uiOutput("ranking")
-      ),
-      tags$br(),
-      tags$div(
-        tags$h4("Performance Metrics Comparison"),
-        plotOutput("performancePlot")
-      ),
-      tags$br(),
-      tags$div(
-        tags$h4("Player Radar Chart"),
-        plotOutput("radarChart")
-      ),
+      style = "margin-left: -200px;",
+      tabsetPanel(
+        tabPanel(
+          "Overview",
+          tags$div(
+            tags$h4("Player Performance Data"),
+            tableOutput("oneStatRow")
+          ),
+          tags$br(),
+          tags$div(
+            id = "agents-container",
+            tags$h4("Agents Played"),
+            uiOutput("agents")
+          )
+        ),
+        tabPanel(
+          "Rankings",
+          tags$div(
+            tags$h4("Rankings for All Metrics"),
+            uiOutput("ranking")
+          )
+        ),
+        tabPanel(
+          "Metrics Comparison",
+          tags$div(
+            tags$h4("Performance Metrics Comparison"),
+            plotOutput("performancePlot")
+          )
+        ),
+        tabPanel(
+          "Radar Chart",
+          tags$div(
+            tags$h4("Player Radar Chart"),
+            plotOutput("radarChart")
+          )
+        )
+      )
     )
   )
 )
@@ -112,12 +132,24 @@ server <- function(input, output, session) {
     filteredData()[1, !colnames(filteredData()) %in% "Agent", drop = FALSE]
   })
   
-  # Agents Section
+  # Agent selection images
   output$agents <- renderUI({
     req(filteredData())
+    
     unique_agents <- unique(filteredData()$Agent)
-    tags$p(HTML(paste("Agents Played:", paste(unique_agents, collapse = ", "))))
+    
+    agent_html <- lapply(unique_agents, function(agent) {
+      img_path <- paste0("images/", tolower(agent), ".png")
+      
+      tags$div(
+        HTML(paste(agent)),
+        tags$img(src = img_path, class = "agent-image")
+      )
+    })
+    
+    do.call(tagList, agent_html)
   })
+  
   
   # Ranking
   output$ranking <- renderUI({
@@ -139,10 +171,13 @@ server <- function(input, output, session) {
     
     ranks <- c()
     for (metric in metrics) {
+      # Convert the metric column to numeric
       metric_values <- as.numeric(df_unique[[metric]])
       
+      # Rank the values in descending order
       metric_ranks <- rank(-metric_values, ties.method = "min")
       
+      # Find the rank of the current player
       player_index <- which(df_unique$Player == player_data$Player)
       if (length(player_index) > 0) {
         player_rank <- metric_ranks[player_index[1]]
@@ -152,13 +187,15 @@ server <- function(input, output, session) {
       
       ranks <- c(ranks, player_rank)
     }
-
+    
+    # Create rankings data frame
     rankings <- data.frame(
       Metric = metrics,
       Rank = ranks,
       TotalPlayers = total_players
     )
     
+    # Generate rankings text
     rankings_text <- paste(
       paste0(
         rankings$Metric, ": Rank ", rankings$Rank, "/", rankings$TotalPlayers
